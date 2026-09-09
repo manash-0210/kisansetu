@@ -1,0 +1,13 @@
+# Dependencies / Temp
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+
+# Environment variables
+.env
+.env.local
+
+# IDEs & Editors
+.vscode/
+.idea/

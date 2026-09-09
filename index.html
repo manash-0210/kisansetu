@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>KisanSetu — Government Agricultural Procurement Management Platform</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Custom Tailwind Config -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            emerald: {
+              50: '#ecfdf5',
+              100: '#d1fae5',
+              200: '#a7f3d0',
+              300: '#6ee7b7',
+              400: '#34d399',
+              500: '#10b981',
+              600: '#059669',
+              700: '#047857',
+              800: '#065f46',
+              900: '#064e3b',
+              950: '#022c22'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS & JS for Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+
+  <!-- Supabase JS Client Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body class="bg-slate-50 text-slate-900 min-h-screen flex flex-col antialiased selection:bg-emerald-200 selection:text-emerald-900 pb-mobile-nav">
+
+  <!-- HEADER / NAVBAR -->
+  <header id="app-header" class="w-full"></header>
+
+  <!-- MAIN CONTENT CONTAINER -->
+  <main id="app-content" class="flex-grow w-full"></main>
+
+  <!-- MOBILE BOTTOM NAVIGATION -->
+  <nav id="mobile-bottom-nav"></nav>
+
+  <!-- GLOBAL TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-50 flex flex-col space-y-2 max-w-sm pointer-events-none"></div>
+
+  <!-- GLOBAL MODAL DIALOG CONTAINER -->
+  <div id="global-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden transform transition-all animate-fadeIn" id="modal-content">
+      <!-- Modal Content Injected Dynamically -->
+    </div>
+  </div>
+
+  <!-- AUTH MODAL DIALOG CONTAINER -->
+  <div id="auth-modal" class="fixed inset-0 z-50 hidden bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl p-6 sm:p-8 space-y-6 relative">
+      <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xl font-bold">✕</button>
+      
+      <div class="text-center space-y-1">
+        <div class="w-12 h-12 rounded-xl bg-emerald-600 text-white mx-auto flex items-center justify-center text-xl font-bold">KS</div>
+        <h3 class="text-xl font-extrabold text-slate-900" id="auth-modal-title">Sign In to KisanSetu</h3>
+        <p class="text-xs text-slate-500">Access live tokens, mandi bookings, and DBT payments.</p>
+      </div>
+
+      <!-- Auth Form Switcher Tabs -->
+      <div class="flex bg-slate-100 p-1 rounded-xl text-xs font-bold">
+        <button id="tab-login" onclick="switchAuthTab('login')" class="flex-1 py-2 rounded-lg bg-white shadow-sm text-emerald-700">Log In</button>
+        <button id="tab-signup" onclick="switchAuthTab('signup')" class="flex-1 py-2 rounded-lg text-slate-600">Sign Up</button>
+      </div>
+
+      <div class="space-y-4 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">User Role</label>
+          <select id="auth-role" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-bold focus:outline-none focus:border-emerald-600">
+            <option value="farmer">🌾 Farmer (Ramesh Kumar)</option>
+            <option value="staff">🏬 Procurement Mandi Staff (Biraj Kalita)</option>
+            <option value="admin">🏛️ Government Admin</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Email / Mobile ID</label>
+          <input type="email" id="auth-email" value="ramesh.farmer@kisansetu.gov.in" placeholder="name@example.com" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-semibold focus:outline-none focus:border-emerald-600"/>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Password</label>
+          <div class="relative">
+            <input type="password" id="auth-password" value="KisanSetu2026!" placeholder="••••••••" class="w-full bg-slate-50 border border-slate-300 rounded-lg pl-3 pr-10 py-2.5 font-semibold focus:outline-none focus:border-emerald-600"/>
+            <button type="button" onclick="togglePasswordVisibility(); return false;" class="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-emerald-700 focus:outline-none cursor-pointer z-10" title="Toggle password visibility">
+              <svg id="pwd-eye-icon" class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div id="signup-extra-fields" class="space-y-3 hidden">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+            <input type="text" id="auth-fullname" placeholder="Ramesh Kumar" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-semibold"/>
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">District / Village</label>
+            <input type="text" id="auth-location" placeholder="Sonapur, Kamrup" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 font-semibold"/>
+          </div>
+        </div>
+
+        <button onclick="handleAuthSubmit()" id="auth-submit-btn" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3 rounded-xl shadow-lg shadow-emerald-600/30 transition-transform active:scale-95 text-sm">
+          Log In →
+        </button>
+      </div>
+
+      <p class="text-[11px] text-center text-slate-400">Secured by Supabase Auth & Government PM-KISAN Registry</p>
+    </div>
+  </div>
+
+  <!-- APPLICATION SCRIPTS -->
+  <script src="js/data.js"></script>
+  <script src="js/translations.js"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/app.js"></script>
+
+</body>
+</html>

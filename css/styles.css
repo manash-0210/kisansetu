@@ -1,0 +1,131 @@
+/* KisanSetu Custom CSS & Theme Styling */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Hind:wght@400;500;600;700&display=swap');
+
+:root {
+  --primary: #059669; /* Emerald 600 */
+  --primary-dark: #047857; /* Emerald 700 */
+  --primary-light: #ecfdf5; /* Emerald 50 */
+  --accent: #10b981;
+  --dark-navy: #0f172a;
+  --text-main: #1e293b;
+  --bg-light: #f8fafc;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', 'Hind', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-light);
+  color: var(--text-main);
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Live Pulse Indicator */
+.pulse-green {
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: pulse-green 1.8s infinite;
+}
+
+@keyframes pulse-green {
+  0% {
+    transform: scale(0.98);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.98);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+/* Glassmorphism effects */
+.glass-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+/* Print Receipt Styles */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-receipt-area, #printable-receipt-area * {
+    visibility: visible;
+  }
+  #printable-receipt-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
+
+/* Map Interactive Markers */
+.map-marker {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.map-marker:hover {
+  transform: scale(1.15) translateY(-4px);
+  z-index: 50;
+}
+
+/* Active tab indicators */
+.tab-active {
+  border-bottom: 3px solid #059669;
+  color: #047857 !important;
+  font-weight: 700 !important;
+}
+
+/* Custom Tooltip */
+.tooltip {
+  position: relative;
+}
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 140px;
+  background-color: #0f172a;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px 8px;
+  position: absolute;
+  z-index: 100;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -70px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  font-size: 12px;
+}
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+  opacity: 1;
+}
+
+/* Mobile sticky bottom nav spacing */
+@media (max-width: 768px) {
+  .pb-mobile-nav {
+    padding-bottom: 80px !important;
+  }
+}
