@@ -33,47 +33,46 @@ function initApp() {
   renderView(currentView);
   startQueueSimulation();
   renderMobileNav();
+
+  // Prompt portal role login modal on load if not logged in
+  if (!currentUser) {
+    setTimeout(() => {
+      openAuthModal('login');
+    }, 500);
+  }
 }
 
 // Change View Function
 function setView(viewName, params = {}) {
-  const role = state.userRole || 'farmer';
+  const isLoggedIn = !!currentUser;
+  const role = isLoggedIn ? (state.userRole || 'farmer') : 'guest';
 
-  // Role Access Control Checks
-  if (viewName === 'book-slot' && role === 'staff') {
-    showToast('Access Denied: Procurement Officers cannot book procurement slots.', 'error');
-    currentView = 'staff-dashboard';
-    renderNavbar();
-    renderView('staff-dashboard', params);
-    renderMobileNav();
-    return;
+  // Strict Role Access Control Checks
+  if (viewName === 'book-slot' && (!isLoggedIn || role !== 'farmer')) {
+    if (!isLoggedIn) {
+      showToast('Please log in as a Farmer to book a procurement slot.', 'warning');
+      openAuthModal('login');
+    } else {
+      showToast('Access Denied: Only Farmers can book procurement slots.', 'error');
+    }
   }
 
-  if (viewName === 'book-slot' && role === 'admin') {
-    showToast('Access Denied: Admin accounts cannot book procurement slots.', 'warning');
-    currentView = 'admin-dashboard';
-    renderNavbar();
-    renderView('admin-dashboard', params);
-    renderMobileNav();
-    return;
+  if (viewName === 'staff-dashboard' && (!isLoggedIn || role !== 'staff')) {
+    if (!isLoggedIn) {
+      showToast('Please log in as Procurement Staff to access officer workspace.', 'warning');
+      openAuthModal('login');
+    } else {
+      showToast('Access Denied: Mandi Staff Workspace is restricted to Procurement Officers.', 'error');
+    }
   }
 
-  if (viewName === 'staff-dashboard' && role === 'farmer') {
-    showToast('Access Denied: Mandi Staff Workspace is restricted to Procurement Officers.', 'error');
-    currentView = 'dashboard';
-    renderNavbar();
-    renderView('dashboard', params);
-    renderMobileNav();
-    return;
-  }
-
-  if (viewName === 'admin-dashboard' && role !== 'admin') {
-    showToast('Access Denied: Government Command Center is restricted to Admins.', 'error');
-    currentView = role === 'staff' ? 'staff-dashboard' : 'dashboard';
-    renderNavbar();
-    renderView(currentView, params);
-    renderMobileNav();
-    return;
+  if (viewName === 'admin-dashboard' && (!isLoggedIn || role !== 'admin')) {
+    if (!isLoggedIn) {
+      showToast('Please log in as Govt Admin to access command center.', 'warning');
+      openAuthModal('login');
+    } else {
+      showToast('Access Denied: Government Command Center is restricted to Admins.', 'error');
+    }
   }
 
   currentView = viewName;
@@ -542,22 +541,95 @@ function renderMobileNav() {
 // -------------------------------------------------------------
 // VIEW ROUTER
 // -------------------------------------------------------------
+// -------------------------------------------------------------
+// ACCESS BLOCKED SCREEN FOR UNAUTHENTICATED OR RESTRICTED ROLES
+// -------------------------------------------------------------
+function renderAccessBlockedScreen(reason) {
+  let title = "Authentication Required";
+  let message = "Please log in to your account to access this section.";
+  let btnText = "🔐 Log In / Sign Up";
+  let btnAction = "openAuthModal('login')";
+  let icon = "🔒";
+
+  if (reason === 'farmer-login-required') {
+    title = "Farmer Authentication Required";
+    message = "You must log in as a registered Farmer before you can book procurement slots or view farmer portal services.";
+  } else if (reason === 'farmer-only') {
+    icon = "⛔";
+    title = "Farmer Access Only";
+    message = "Procurement slot booking is strictly reserved for registered Farmer accounts.";
+    btnText = "Return to Home Page";
+    btnAction = "setView('landing')";
+  } else if (reason === 'staff-login-required') {
+    title = "Procurement Staff Login Required";
+    message = "Access to the Mandi Staff Workspace and token caller portal requires official officer credentials.";
+  } else if (reason === 'staff-only') {
+    icon = "⛔";
+    title = "Mandi Staff Only";
+    message = "Calling queue tokens and operating weighbridge records is strictly restricted to Procurement Officers.";
+    btnText = "Return to My Portal";
+    btnAction = "setView('dashboard')";
+  } else if (reason === 'admin-login-required') {
+    title = "Government Admin Login Required";
+    message = "Access to the State-wide Procurement Command Center requires administrator credentials.";
+  } else if (reason === 'admin-only') {
+    icon = "⛔";
+    title = "Administrator Only";
+    message = "This section is restricted to Government Admin accounts.";
+    btnText = "Return to Home Page";
+    btnAction = "setView('landing')";
+  }
+
+  return `
+    <div class="max-w-lg mx-auto my-16 p-8 bg-white border border-slate-200 rounded-3xl shadow-2xl text-center space-y-5">
+      <div class="w-16 h-16 bg-amber-100 text-amber-700 rounded-2xl flex items-center justify-center mx-auto text-3xl font-bold shadow-inner">
+        ${icon}
+      </div>
+      <div class="space-y-1">
+        <h2 class="text-xl font-extrabold text-slate-900">${title}</h2>
+        <p class="text-xs text-slate-600 leading-relaxed">${message}</p>
+      </div>
+      <button onclick="${btnAction}" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold py-3.5 rounded-xl shadow-lg shadow-emerald-600/30 transition-transform active:scale-95 text-sm cursor-pointer">
+        ${btnText}
+      </button>
+    </div>
+  `;
+}
+
+// -------------------------------------------------------------
+// VIEW ROUTER WITH HARD ACCESS GATES
+// -------------------------------------------------------------
 function renderView(viewName, params = {}) {
   const main = document.getElementById('app-content');
   if (!main) return;
+
+  const isLoggedIn = !!currentUser;
+  const userRole = isLoggedIn ? (state.userRole || 'farmer') : 'guest';
 
   switch (viewName) {
     case 'landing':
       main.innerHTML = renderLandingPage();
       break;
     case 'dashboard':
-      main.innerHTML = renderFarmerDashboard();
+      if (!isLoggedIn) {
+        main.innerHTML = renderAccessBlockedScreen('farmer-login-required');
+      } else {
+        main.innerHTML = renderFarmerDashboard();
+      }
       break;
     case 'book-slot':
-      main.innerHTML = renderSlotBookingWizard();
+      if (!isLoggedIn || userRole !== 'farmer') {
+        main.innerHTML = renderAccessBlockedScreen(!isLoggedIn ? 'farmer-login-required' : 'farmer-only');
+      } else {
+        main.innerHTML = renderSlotBookingWizard();
+      }
       break;
     case 'confirmation':
-      main.innerHTML = renderBookingConfirmation(params);
+      if (!isLoggedIn) {
+        main.innerHTML = renderAccessBlockedScreen('farmer-login-required');
+      } else {
+        main.innerHTML = renderBookingConfirmation(params);
+      }
       break;
     case 'queue':
       main.innerHTML = renderLiveQueuePage();
@@ -569,17 +641,29 @@ function renderView(viewName, params = {}) {
       main.innerHTML = renderPaymentPage();
       break;
     case 'history':
-      main.innerHTML = renderProcurementHistoryPage();
+      if (!isLoggedIn) {
+        main.innerHTML = renderAccessBlockedScreen('farmer-login-required');
+      } else {
+        main.innerHTML = renderProcurementHistoryPage();
+      }
       break;
     case 'notifications':
       main.innerHTML = renderNotificationsPage();
       break;
     case 'staff-dashboard':
-      main.innerHTML = renderStaffDashboard();
+      if (!isLoggedIn || userRole !== 'staff') {
+        main.innerHTML = renderAccessBlockedScreen(!isLoggedIn ? 'staff-login-required' : 'staff-only');
+      } else {
+        main.innerHTML = renderStaffDashboard();
+      }
       break;
     case 'admin-dashboard':
-      main.innerHTML = renderAdminDashboard();
-      initAdminCharts();
+      if (!isLoggedIn || userRole !== 'admin') {
+        main.innerHTML = renderAccessBlockedScreen(!isLoggedIn ? 'admin-login-required' : 'admin-only');
+      } else {
+        main.innerHTML = renderAdminDashboard();
+        initAdminCharts();
+      }
       break;
     case 'map':
       main.innerHTML = renderProcurementMapPage();
