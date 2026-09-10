@@ -301,9 +301,133 @@ function handleSignOut() {
 // -------------------------------------------------------------
 // NAVBAR & TOP HEADER
 // -------------------------------------------------------------
+function handleBookSlotClick() {
+  if (!currentUser) {
+    showToast('Please log in as a Farmer to book a procurement slot.', 'warning');
+    openAuthModal('login');
+    return;
+  }
+  if (state.userRole !== 'farmer') {
+    showToast('Access Denied: Only logged-in Farmers can book procurement slots.', 'error');
+    return;
+  }
+  setView('book-slot');
+}
+
+// -------------------------------------------------------------
+// NAVBAR & TOP HEADER
+// -------------------------------------------------------------
 function renderNavbar() {
   const headerEl = document.getElementById('app-header');
   if (!headerEl) return;
+
+  const isLoggedIn = !!currentUser;
+  const userRole = isLoggedIn ? (state.userRole || 'farmer') : 'guest';
+
+  // Role-based Nav Tabs
+  let navTabsHtml = `
+    <button onclick="setView('landing')" class="px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${currentView === 'landing' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-700 hover:bg-slate-100'}">
+      ${t('navLanding')}
+    </button>
+  `;
+
+  // Hide Centre Staff & Govt Admin tabs from Farmers & Guests!
+  if (userRole === 'guest' || userRole === 'farmer') {
+    navTabsHtml += `
+      <div class="relative group">
+        <button onclick="setView('dashboard')" class="px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-1 transition-colors ${['dashboard','book-slot','confirmation','queue','procurement','payments','history','notifications'].includes(currentView) ? 'text-emerald-700 bg-emerald-50' : 'text-slate-700 hover:bg-slate-100'}">
+          👨‍🌾 ${t('navFarmer')}
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        
+        <!-- Dropdown Menu -->
+        <div class="absolute left-0 mt-1 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-2 hidden group-hover:block z-50 animate-fadeIn">
+          <a href="#" onclick="setView('dashboard')" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Dashboard Overview
+          </a>
+          <a href="#" onclick="handleBookSlotClick()" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2">
+            📅 Book Procurement Slot
+          </a>
+          <a href="#" onclick="setView('queue')" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2">
+            🔢 Live Queue (Token A107)
+          </a>
+          <a href="#" onclick="setView('procurement')" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2">
+            📦 Procurement Status
+          </a>
+          <a href="#" onclick="setView('payments')" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2">
+            💰 Payment & DBT Status
+          </a>
+          <a href="#" onclick="setView('history')" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2">
+            📋 Past Records & Receipts
+          </a>
+          <a href="#" onclick="setView('notifications')" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center justify-between">
+            <span>🔔 Notifications</span>
+            <span class="bg-red-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">2</span>
+          </a>
+        </div>
+      </div>
+    `;
+  } else if (userRole === 'staff') {
+    navTabsHtml += `
+      <button onclick="setView('staff-dashboard')" class="px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${currentView === 'staff-dashboard' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-700 hover:bg-slate-100'}">
+        🏬 Staff Workspace
+      </button>
+    `;
+  } else if (userRole === 'admin') {
+    navTabsHtml += `
+      <button onclick="setView('admin-dashboard')" class="px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${currentView === 'admin-dashboard' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-700 hover:bg-slate-100'}">
+        🏛️ Admin Command Center
+      </button>
+    `;
+  }
+
+  navTabsHtml += `
+    <button onclick="setView('map')" class="px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${currentView === 'map' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-700 hover:bg-slate-100'}">
+      🗺️ ${t('navMap')}
+    </button>
+  `;
+
+  // Profile Badge HTML: ONLY show name and badge when logged in!
+  let profileBadgeHtml = '';
+  if (isLoggedIn) {
+    profileBadgeHtml = `
+      <div class="flex items-center gap-2 border-l border-slate-200 pl-3">
+        <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-extrabold flex items-center justify-center text-xs border border-emerald-300 shadow-sm">
+          ${state.farmer.initials || 'RK'}
+        </div>
+        <div class="hidden lg:block text-left">
+          <p class="text-xs font-bold text-slate-800 leading-tight">${state.farmer.name}</p>
+          <p class="text-[10px] text-slate-500 font-medium">${state.farmer.id} (${userRole.toUpperCase()})</p>
+        </div>
+        <button onclick="handleSignOut()" class="text-xs font-bold text-red-600 hover:bg-red-50 px-2 py-1 rounded ml-1 transition-colors cursor-pointer">Log Out</button>
+      </div>
+    `;
+  } else {
+    profileBadgeHtml = `
+      <div class="flex items-center gap-2 border-l border-slate-200 pl-3">
+        <button onclick="openAuthModal('login')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5">
+          <span>🔐 Log In / Sign Up</span>
+        </button>
+      </div>
+    `;
+  }
+
+  // Right Action Button (Book Slot or Staff Workspace)
+  let actionButtonHtml = '';
+  if (userRole === 'staff') {
+    actionButtonHtml = `
+      <button onclick="setView('staff-dashboard')" class="hidden sm:inline-flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition-all transform active:scale-95 cursor-pointer">
+        <span>Mandi Workspace</span>
+      </button>
+    `;
+  } else {
+    actionButtonHtml = `
+      <button onclick="handleBookSlotClick()" class="hidden sm:inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition-all transform active:scale-95 cursor-pointer">
+        <span>Book Slot</span>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+      </button>
+    `;
+  }
 
   headerEl.innerHTML = `
     <!-- Top Official Govt Ticker & Portal Bar -->
@@ -358,84 +482,13 @@ function renderNavbar() {
 
           <!-- Nav Tabs (Desktop) -->
           <nav class="hidden md:flex items-center space-x-1 lg:space-x-2">
-            <button onclick="setView('landing')" class="px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${currentView === 'landing' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-700 hover:bg-slate-100'}">
-              ${t('navLanding')}
-            </button>
-
-            <!-- Farmer Portal Dropdown/Tab -->
-            <div class="relative group">
-              <button onclick="setView('dashboard')" class="px-3 py-2 text-sm font-semibold rounded-lg flex items-center gap-1 transition-colors ${['dashboard','book-slot','confirmation','queue','procurement','payments','history','notifications'].includes(currentView) ? 'text-emerald-700 bg-emerald-50' : 'text-slate-700 hover:bg-slate-100'}">
-                👨‍🌾 ${t('navFarmer')}
-                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-              </button>
-              
-              <!-- Dropdown Menu -->
-              <div class="absolute left-0 mt-1 w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-2 hidden group-hover:block z-50 animate-fadeIn">
-                <a href="#" onclick="setView('dashboard')" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Dashboard Overview
-                </a>
-                <a href="#" onclick="setView('book-slot')" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2">
-                  📅 Book Procurement Slot
-                </a>
-                <a href="#" onclick="setView('queue')" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2">
-                  🔢 Live Queue (Token A107)
-                </a>
-                <a href="#" onclick="setView('procurement')" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2">
-                  📦 Procurement Status
-                </a>
-                <a href="#" onclick="setView('payments')" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2">
-                  💰 Payment & DBT Status
-                </a>
-                <a href="#" onclick="setView('history')" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center gap-2">
-                  📋 Past Records & Receipts
-                </a>
-                <a href="#" onclick="setView('notifications')" class="px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 flex items-center justify-between">
-                  <span>🔔 Notifications</span>
-                  <span class="bg-red-500 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">2</span>
-                </a>
-              </div>
-            </div>
-
-            <button onclick="setView('staff-dashboard')" class="px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${currentView === 'staff-dashboard' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-700 hover:bg-slate-100'}">
-              🏬 ${t('navStaff')}
-            </button>
-
-            <button onclick="setView('admin-dashboard')" class="px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${currentView === 'admin-dashboard' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-700 hover:bg-slate-100'}">
-              🏛️ ${t('navAdmin')}
-            </button>
-
-            <button onclick="setView('map')" class="px-3 py-2 text-sm font-semibold rounded-lg transition-colors ${currentView === 'map' ? 'text-emerald-700 bg-emerald-50' : 'text-slate-700 hover:bg-slate-100'}">
-              🗺️ ${t('navMap')}
-            </button>
+            ${navTabsHtml}
           </nav>
 
-          <!-- Right Action & Dynamic Logged In Profile Badge -->
+          <!-- Right Action & Profile Badge -->
           <div class="flex items-center space-x-3">
-            <button onclick="setView('book-slot')" class="hidden sm:inline-flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition-all transform active:scale-95">
-              <span>Book Slot</span>
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-            </button>
-
-            <!-- Dynamic Profile Badge / Auth Button -->
-            <div class="flex items-center gap-2 border-l border-slate-200 pl-3">
-              ${currentUser ? `
-                <button onclick="handleSignOut()" class="text-xs font-bold text-red-600 hover:underline px-2 py-1">Log Out</button>
-              ` : `
-                <button onclick="openAuthModal('login')" class="bg-slate-100 hover:bg-emerald-50 text-slate-800 hover:text-emerald-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-300 transition-colors">
-                  🔐 Log In / Sign Up
-                </button>
-              `}
-              
-              <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-extrabold flex items-center justify-center text-xs border border-emerald-300 shadow-sm">
-                ${state.farmer.initials || 'RK'}
-              </div>
-
-              <div class="hidden lg:block text-left">
-                <p class="text-xs font-bold text-slate-800 leading-tight">${state.farmer.name}</p>
-                <p class="text-[10px] text-slate-500 font-medium">${state.farmer.id}</p>
-              </div>
-            </div>
-
+            ${actionButtonHtml}
+            ${profileBadgeHtml}
           </div>
 
         </div>
@@ -460,7 +513,7 @@ function renderMobileNav() {
           <span class="text-[10px]">Home</span>
         </button>
 
-        <button onclick="setView('book-slot')" class="flex flex-col items-center py-1 rounded-lg ${currentView === 'book-slot' ? 'text-emerald-700 font-bold' : 'text-slate-500'}">
+        <button onclick="handleBookSlotClick()" class="flex flex-col items-center py-1 rounded-lg ${currentView === 'book-slot' ? 'text-emerald-700 font-bold' : 'text-slate-500'}">
           <svg class="w-5 h-5 mb-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
           <span class="text-[10px]">Book</span>
         </button>
