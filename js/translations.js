@@ -55,10 +55,10 @@ const TRANSLATIONS = {
     btnBookNow: "Book Your Slot Now",
 
     // Farmer Dashboard
-    greeting: "Good Morning, Ramesh 👋",
-    farmerId: "Farmer ID: KS-F10293",
-    village: "Village: Sonapur",
-    district: "District: Kamrup Met",
+    greeting: "Welcome to KisanSetu 👋",
+    farmerId: "Farmer ID: Logged In",
+    village: "Village: Local Hub",
+    district: "District: Kamrup",
     upcomingProcurement: "Upcoming Procurement",
     cropLabel: "Crop",
     quantityLabel: "Quantity",

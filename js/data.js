@@ -3,12 +3,12 @@
 const INITIAL_DATA = {
   farmer: {
     id: "KS-F10293",
-    name: "Ramesh Kumar",
-    nameHi: "रमेश कुमार",
-    nameAs: "ৰমেশ কুমাৰ",
-    phone: "+91 98765 43210",
-    village: "Sonapur",
-    district: "Kamrup Metropolitan",
+    name: "",
+    nameHi: "",
+    nameAs: "",
+    phone: "",
+    village: "",
+    district: "",
     state: "Assam",
     aadhaar: "XXXX-XXXX-8921",
     landArea: "4.5 Acres",
