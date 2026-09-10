@@ -212,6 +212,8 @@ async function handleAuthSubmit() {
   if (currentAuthTab === 'login') {
     const res = await signInUser(email, password);
     currentUser = res.user || { email };
+    currentUser.role = role;
+    state.userRole = role;
     updateLoggedInProfile(currentUser, role);
     closeAuthModal();
     if (role === 'staff') setView('staff-dashboard');
@@ -222,27 +224,34 @@ async function handleAuthSubmit() {
     const locationInput = document.getElementById('auth-location').value;
     const res = await signUpUser(email, password, role, { fullName: fullNameInput, village: locationInput, district: locationInput });
     currentUser = res.user || { email };
+    currentUser.role = role;
+    state.userRole = role;
     updateLoggedInProfile(currentUser, role, { fullName: fullNameInput, location: locationInput });
     closeAuthModal();
     if (role === 'staff') setView('staff-dashboard');
+    else if (role === 'admin') setView('admin-dashboard');
     else setView('dashboard');
   }
 }
 
 // Update Active Farmer Profile Details Dynamically
 function updateLoggedInProfile(user, role, extra = {}) {
+  const targetRole = role || (user && user.role) || 'farmer';
+  state.userRole = targetRole;
+  if (user) user.role = targetRole;
+
   let name = extra.fullName;
   if (!name && user && user.email) {
     const prefix = user.email.split('@')[0].replace(/[0-9_.]/g, ' ');
     name = prefix.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   }
   if (!name || name.trim().length < 2) {
-    name = "Manash Hazarika";
+    name = targetRole === 'staff' ? 'Biraj Kalita (Officer)' : targetRole === 'admin' ? 'Govt Administrator' : 'Manash Hazarika';
   }
 
   // Generate Unique ID for the User Account
   const hash = user && user.id ? user.id.slice(0, 5).toUpperCase() : Math.floor(10000 + Math.random() * 90000);
-  const farmerId = `KS-F${hash}`;
+  const farmerId = targetRole === 'staff' ? `OFFICER-${hash}` : targetRole === 'admin' ? `ADMIN-${hash}` : `KS-F${hash}`;
 
   const loc = extra.location || "Jalukbari, Guwahati";
   const locParts = loc.split(',');
@@ -266,9 +275,9 @@ function updateLoggedInProfile(user, role, extra = {}) {
   TRANSLATIONS.hi.greeting = `नमस्ते, ${name} 👋`;
   TRANSLATIONS.as.greeting = `নমস্কাৰ, ${name} 👋`;
   
-  TRANSLATIONS.en.farmerId = `Farmer ID: ${farmerId}`;
-  TRANSLATIONS.hi.farmerId = `किसान आईडी: ${farmerId}`;
-  TRANSLATIONS.as.farmerId = `কৃষক আইডি: ${farmerId}`;
+  TRANSLATIONS.en.farmerId = `ID: ${farmerId}`;
+  TRANSLATIONS.hi.farmerId = `आईडी: ${farmerId}`;
+  TRANSLATIONS.as.farmerId = `আইডি: ${farmerId}`;
 
   TRANSLATIONS.en.village = `Village: ${village}`;
   TRANSLATIONS.hi.village = `गांव: ${village}`;
