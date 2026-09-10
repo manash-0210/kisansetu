@@ -111,6 +111,33 @@ async function signInUser(email, password) {
   }
 }
 
+// Google OAuth Sign In
+async function signInWithGoogle() {
+  if (!supabaseClient) {
+    showToast("Signed in with Google (Demo Mode)");
+    updateLoggedInProfile({ email: "farmer.google@gmail.com", user_metadata: { full_name: "Google User" } });
+    closeAuthModal();
+    return;
+  }
+
+  try {
+    const { data, error } = await supabaseClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+
+    if (error) {
+      console.error("Google Auth error:", error.message);
+      showToast(`Google Sign-In Notice: ${error.message}`);
+    }
+  } catch (err) {
+    console.error("Google Auth error:", err);
+    showToast("Connecting to Google Auth...");
+  }
+}
+
 // -------------------------------------------------------------
 // REALTIME WEBSOCKET SUBSCRIPTIONS
 // -------------------------------------------------------------
