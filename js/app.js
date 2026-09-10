@@ -37,6 +37,45 @@ function initApp() {
 
 // Change View Function
 function setView(viewName, params = {}) {
+  const role = state.userRole || 'farmer';
+
+  // Role Access Control Checks
+  if (viewName === 'book-slot' && role === 'staff') {
+    showToast('Access Denied: Procurement Officers cannot book procurement slots.', 'error');
+    currentView = 'staff-dashboard';
+    renderNavbar();
+    renderView('staff-dashboard', params);
+    renderMobileNav();
+    return;
+  }
+
+  if (viewName === 'book-slot' && role === 'admin') {
+    showToast('Access Denied: Admin accounts cannot book procurement slots.', 'warning');
+    currentView = 'admin-dashboard';
+    renderNavbar();
+    renderView('admin-dashboard', params);
+    renderMobileNav();
+    return;
+  }
+
+  if (viewName === 'staff-dashboard' && role === 'farmer') {
+    showToast('Access Denied: Mandi Staff Workspace is restricted to Procurement Officers.', 'error');
+    currentView = 'dashboard';
+    renderNavbar();
+    renderView('dashboard', params);
+    renderMobileNav();
+    return;
+  }
+
+  if (viewName === 'admin-dashboard' && role !== 'admin') {
+    showToast('Access Denied: Government Command Center is restricted to Admins.', 'error');
+    currentView = role === 'staff' ? 'staff-dashboard' : 'dashboard';
+    renderNavbar();
+    renderView(currentView, params);
+    renderMobileNav();
+    return;
+  }
+
   currentView = viewName;
   window.scrollTo({ top: 0, behavior: 'smooth' });
   renderNavbar();
@@ -1251,10 +1290,24 @@ async function confirmNewBooking() {
     createdDate: "09 Sep 2026"
   };
 
+  // Sync token A107 in live queue with exact details given by the farmer
+  const queueA107 = state.liveQueueList.find(q => q.token === 'A107');
+  if (queueA107) {
+    queueA107.farmerName = state.farmer.name;
+    queueA107.farmerId = state.farmer.id;
+    queueA107.village = state.farmer.village;
+    queueA107.district = state.farmer.district;
+    queueA107.crop = selectedCropObj.name;
+    queueA107.quantityQuintals = bookingWizard.quantity;
+    queueA107.date = "10 September 2026";
+    queueA107.timeSlot = bookingWizard.selectedSlot;
+    queueA107.centreName = selectedCentreObj.name;
+  }
+
   // Sync to Supabase Database
   await dbCreateBooking(state.activeBooking);
 
-  showToast("Procurement slot booked successfully! Token A107 generated.");
+  showToast(`Procurement slot booked successfully for ${state.farmer.name}! Token A107 generated.`);
   setView('confirmation');
 }
 
@@ -1824,8 +1877,37 @@ function markAllNotificationsRead() {
 // -------------------------------------------------------------
 // 10. PROCUREMENT CENTRE STAFF DASHBOARD
 // -------------------------------------------------------------
+// -------------------------------------------------------------
+// 10. PROCUREMENT CENTRE STAFF DASHBOARD
+// -------------------------------------------------------------
 function renderStaffDashboard() {
-  const currentToken = state.liveQueueList.find(q => q.status === 'Serving')?.token || 'A104';
+  let servingItem = state.liveQueueList.find(q => q.status === 'Serving');
+  if (!servingItem) {
+    servingItem = state.liveQueueList.find(q => q.token === 'A107') || state.liveQueueList[0];
+    servingItem.status = 'Serving';
+  }
+
+  // Hydrate serving item with active farmer profile details if it's token A107 / user
+  if (servingItem.token === 'A107' || servingItem.isUser) {
+    servingItem.farmerName = state.farmer.name;
+    servingItem.farmerId = state.farmer.id;
+    servingItem.village = state.farmer.village;
+    servingItem.district = state.farmer.district;
+    servingItem.crop = state.activeBooking.crop || 'Paddy (Dhan - Grade A)';
+    servingItem.quantityQuintals = state.activeBooking.quantityQuintals || 32;
+    servingItem.date = state.activeBooking.date || '10 September 2026';
+    servingItem.timeSlot = state.activeBooking.timeSlot || '10:30 AM – 11:30 AM';
+    servingItem.centreName = state.activeBooking.centreName || 'XYZ Procurement Centre (Kamrup Hub)';
+  } else {
+    servingItem.crop = servingItem.crop || 'Paddy (Dhan - Grade A)';
+    servingItem.quantityQuintals = servingItem.quantityQuintals || 25;
+    servingItem.village = servingItem.village || 'Sonapur';
+    servingItem.district = servingItem.district || 'Kamrup';
+    servingItem.farmerId = servingItem.farmerId || ('KS-F' + Math.floor(10000 + Math.random() * 90000));
+    servingItem.date = servingItem.date || '10 September 2026';
+    servingItem.timeSlot = servingItem.timeSlot || '10:30 AM – 11:30 AM';
+    servingItem.centreName = servingItem.centreName || 'XYZ Procurement Centre (Kamrup Hub)';
+  }
 
   return `
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 pb-20">
@@ -1834,7 +1916,7 @@ function renderStaffDashboard() {
       <div class="bg-slate-900 text-white rounded-2xl p-6 shadow-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <span class="bg-emerald-500 text-slate-950 text-[10px] font-extrabold px-2.5 py-0.5 rounded uppercase">Procurement Officer Workspace</span>
-          <h1 class="text-2xl font-extrabold mt-1">XYZ Procurement Centre (Kamrup Hub)</h1>
+          <h1 class="text-2xl font-extrabold mt-1">${servingItem.centreName}</h1>
           <p class="text-xs text-slate-300">Officer In-Charge: <strong>Biraj Kalita</strong> | Gate #2 Active</p>
         </div>
 
@@ -1872,86 +1954,109 @@ function renderStaffDashboard() {
           
           <div class="bg-emerald-900 text-white p-8 rounded-2xl shadow-xl text-center space-y-4">
             <p class="text-xs text-emerald-300 font-bold uppercase tracking-widest">${t('currentlyServing')}</p>
-            <h2 class="text-6xl font-black text-emerald-300 tracking-wider" id="staff-serving-token">${currentToken}</h2>
-            <p class="text-sm font-semibold text-white">Farmer: Biraj Kalita (Paddy - 32 Q)</p>
+            <h2 class="text-6xl font-black text-emerald-300 tracking-wider" id="staff-serving-token">${servingItem.token}</h2>
+            <p class="text-sm font-bold text-white">Farmer: ${servingItem.farmerName} (${servingItem.crop} - ${servingItem.quantityQuintals} Q)</p>
             
-            <button onclick="callNextFarmer()" class="w-full bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-base py-4 rounded-xl shadow-lg transition-transform active:scale-95">
-              ${t('btnCallNext')}
+            <button onclick="callNextFarmer()" class="w-full bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black text-base py-4 rounded-xl shadow-lg transition-transform active:scale-95 cursor-pointer">
+              📢 ${t('btnCallNext')}
             </button>
           </div>
 
           <!-- Upcoming Queue List -->
           <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-            <h3 class="font-bold text-sm text-slate-900">Upcoming Tokens in Line</h3>
+            <h3 class="font-bold text-sm text-slate-900">Live Mandi Tokens in Line</h3>
             <div class="space-y-2 text-xs">
-              <div class="p-2.5 bg-slate-50 rounded-lg font-bold flex justify-between">
-                <span>A105 - Pranab Saikia</span>
-                <span class="text-slate-500">Next Up</span>
-              </div>
-              <div class="p-2.5 bg-slate-50 rounded-lg font-bold flex justify-between">
-                <span>A106 - Dinesh Mahanta</span>
-                <span class="text-slate-500">In Line</span>
-              </div>
-              <div class="p-2.5 bg-emerald-100 border border-emerald-300 text-emerald-900 rounded-lg font-bold flex justify-between">
-                <span>A107 - ${state.farmer.name}</span>
-                <span class="text-emerald-700">Token A107</span>
-              </div>
-              <div class="p-2.5 bg-slate-50 rounded-lg font-bold flex justify-between">
-                <span>A108 - Bhabesh Talukdar</span>
-                <span class="text-slate-500">In Line</span>
-              </div>
+              ${state.liveQueueList.map(q => {
+                const isCurrent = q.token === servingItem.token;
+                const displayName = q.token === 'A107' || q.isUser ? state.farmer.name : q.farmerName;
+                return `
+                  <div class="p-2.5 rounded-lg font-bold flex justify-between items-center ${
+                    isCurrent 
+                      ? 'bg-emerald-600 text-white shadow-md' 
+                      : q.token === 'A107' || q.isUser
+                        ? 'bg-emerald-100 border border-emerald-300 text-emerald-900' 
+                        : 'bg-slate-50 text-slate-700'
+                  }">
+                    <span>${q.token} - ${displayName}</span>
+                    <span class="text-[11px] ${isCurrent ? 'bg-emerald-800 text-emerald-100 px-2 py-0.5 rounded' : 'text-slate-500'}">
+                      ${isCurrent ? '● SERVING' : q.status === 'Completed' ? 'Done ✓' : 'In Line'}
+                    </span>
+                  </div>
+                `;
+              }).join('')}
             </div>
           </div>
 
         </div>
 
-        <!-- Right Column: Farmer Processing Panel -->
+        <!-- Right Column: Active Farmer Processing Panel -->
         <div class="lg:col-span-7 bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-sm space-y-6">
           <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-            <h3 class="text-lg font-extrabold text-slate-900">Active Farmer Processing Panel</h3>
-            <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-2.5 py-1 rounded-md">Token A107 (${state.farmer.name})</span>
+            <div>
+              <h3 class="text-lg font-extrabold text-slate-900">Active Farmer Processing Panel</h3>
+              <p class="text-xs text-slate-500">Live inspection & weighbridge entry</p>
+            </div>
+            <span class="text-xs bg-emerald-100 text-emerald-800 font-extrabold px-3 py-1.5 rounded-lg border border-emerald-300">
+              Token ${servingItem.token} (${servingItem.farmerName})
+            </span>
           </div>
 
-          <div class="grid grid-cols-2 gap-4 text-xs">
+          <div class="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-xl border border-slate-200">
             <div>
-              <span class="text-slate-400">Farmer ID:</span>
-              <p class="font-bold text-slate-900">${state.farmer.id}</p>
+              <span class="text-slate-400 font-medium">Farmer Name:</span>
+              <p class="font-bold text-slate-900 text-sm">${servingItem.farmerName}</p>
             </div>
             <div>
-              <span class="text-slate-400">Aadhaar Status:</span>
-              <p class="font-bold text-emerald-700">Verified ✓</p>
+              <span class="text-slate-400 font-medium">Farmer ID:</span>
+              <p class="font-bold text-slate-900 text-sm">${servingItem.farmerId || state.farmer.id}</p>
             </div>
             <div>
-              <span class="text-slate-400">Crop Type:</span>
-              <p class="font-bold text-slate-900">Paddy (Grade A)</p>
+              <span class="text-slate-400 font-medium">Village / District:</span>
+              <p class="font-bold text-slate-900">${servingItem.village || state.farmer.village}, ${servingItem.district || state.farmer.district}</p>
             </div>
             <div>
-              <span class="text-slate-400">Declared Quantity:</span>
-              <p class="font-bold text-slate-900">32 Quintals</p>
+              <span class="text-slate-400 font-medium">Aadhaar Status:</span>
+              <p class="font-bold text-emerald-700">PM-KISAN Verified ✓</p>
+            </div>
+            <div>
+              <span class="text-slate-400 font-medium">Crop Selected:</span>
+              <p class="font-bold text-slate-900">${servingItem.crop}</p>
+            </div>
+            <div>
+              <span class="text-slate-400 font-medium">Declared Quantity:</span>
+              <p class="font-bold text-emerald-700 text-sm">${servingItem.quantityQuintals} Quintals</p>
+            </div>
+            <div>
+              <span class="text-slate-400 font-medium">Scheduled Date & Slot:</span>
+              <p class="font-bold text-slate-900">${servingItem.date} (${servingItem.timeSlot})</p>
+            </div>
+            <div>
+              <span class="text-slate-400 font-medium">Mandi Hub:</span>
+              <p class="font-bold text-slate-900">${servingItem.centreName}</p>
             </div>
           </div>
 
           <!-- Staff Action Buttons Timeline simulation -->
           <div class="space-y-3 pt-2">
-            <p class="text-xs font-bold text-slate-800 uppercase tracking-wider">Execute Procurement Operations:</p>
+            <p class="text-xs font-bold text-slate-800 uppercase tracking-wider">Execute Operations for ${servingItem.farmerName}:</p>
             
             <button onclick="staffAction('verify')" class="w-full p-3 rounded-xl border border-slate-300 hover:border-emerald-600 hover:bg-emerald-50 text-left flex justify-between items-center transition-colors">
-              <span class="text-xs font-bold text-slate-900">1. Verify Farmer Identity & Land Documents</span>
+              <span class="text-xs font-bold text-slate-900">1. Verify Identity & Land Registry (${servingItem.farmerName})</span>
               <span class="text-xs font-bold text-emerald-700">Completed ✓</span>
             </button>
 
             <button onclick="staffAction('weigh')" class="w-full p-3 rounded-xl border border-slate-300 hover:border-emerald-600 hover:bg-emerald-50 text-left flex justify-between items-center transition-colors">
-              <span class="text-xs font-bold text-slate-900">2. Record Weighbridge Mass (31.8 Quintals)</span>
+              <span class="text-xs font-bold text-slate-900">2. Record Weighbridge Mass (${servingItem.quantityQuintals} Quintals)</span>
               <span class="text-xs font-bold text-emerald-700">Recorded ✓</span>
             </button>
 
             <button onclick="staffAction('quality')" class="w-full p-3 rounded-xl border border-slate-300 hover:border-emerald-600 hover:bg-emerald-50 text-left flex justify-between items-center transition-colors">
-              <span class="text-xs font-bold text-slate-900">3. Quality Moisture Check (Grade A - 13.2%)</span>
+              <span class="text-xs font-bold text-slate-900">3. Quality Check (${servingItem.crop} - Grade A, 13.2% Moisture)</span>
               <span class="text-xs font-bold text-emerald-700">Verified ✓</span>
             </button>
 
             <button onclick="staffAction('complete')" class="w-full p-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-md flex justify-between items-center transition-transform active:scale-98">
-              <span>4. Complete Procurement & Generate DBT Order</span>
+              <span>4. Complete Procurement & Generate DBT Order for ${servingItem.farmerName}</span>
               <span>Submit Order →</span>
             </button>
           </div>
@@ -1970,10 +2075,13 @@ async function callNextFarmer() {
     const prevServingToken = state.liveQueueList[currentServingIndex].token;
     state.liveQueueList[currentServingIndex].status = 'Completed';
     
-    const nextToken = state.liveQueueList[currentServingIndex + 1].token;
-    state.liveQueueList[currentServingIndex + 1].status = 'Serving';
+    const nextItem = state.liveQueueList[currentServingIndex + 1];
+    nextItem.status = 'Serving';
     
-    // Update active booking position
+    const nextToken = nextItem.token;
+    const nextFarmerName = (nextToken === 'A107' || nextItem.isUser) ? state.farmer.name : nextItem.farmerName;
+
+    // Update active booking queue position if farmer's token is A107
     if (state.activeBooking.queuePosition > 0) {
       state.activeBooking.queuePosition -= 1;
       state.activeBooking.estimatedWaitMin = Math.max(0, state.activeBooking.estimatedWaitMin - 7);
@@ -1982,22 +2090,32 @@ async function callNextFarmer() {
     // Sync status change to Supabase database
     await dbUpdateTokenStatus(prevServingToken, 'Completed');
     await dbUpdateTokenStatus(nextToken, 'Serving');
+
+    showToast(`📢 Token ${nextToken} (${nextFarmerName}) called to Counter 1!`);
+  } else {
+    // Loop back to A107
+    state.liveQueueList.forEach(q => q.status = 'Waiting');
+    const targetToken = state.liveQueueList.find(q => q.token === 'A107') || state.liveQueueList[0];
+    targetToken.status = 'Serving';
+    showToast(`📢 Token A107 (${state.farmer.name}) called to Counter 1!`);
   }
   renderView('staff-dashboard');
-  showToast("Called next token to Counter 1!");
 }
 
 async function staffAction(act) {
+  const servingItem = state.liveQueueList.find(q => q.status === 'Serving') || state.liveQueueList[0];
+  const farmerName = (servingItem.token === 'A107' || servingItem.isUser) ? state.farmer.name : servingItem.farmerName;
+
   if (act === 'complete') {
     state.procurementProgress.currentStep = 5;
     state.procurementProgress.steps[4].done = true;
     state.procurementProgress.steps[5].done = true;
     state.procurementProgress.steps[5].time = "Just now";
     
-    await dbUpdateTokenStatus('A107', 'Completed');
-    showToast("Procurement completed for Token A107! DBT payment order created & synced to Supabase.");
+    await dbUpdateTokenStatus(servingItem.token, 'Completed');
+    showToast(`Procurement completed for Token ${servingItem.token} (${farmerName})! DBT payment order created & synced to Supabase.`);
   } else {
-    showToast(`Staff operation '${act}' recorded successfully.`);
+    showToast(`Staff operation '${act}' recorded for ${farmerName}.`);
   }
 }
 
